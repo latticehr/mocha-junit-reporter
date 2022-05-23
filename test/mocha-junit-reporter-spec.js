@@ -63,6 +63,14 @@ describe('mocha-junit-reporter', function() {
       });
     }
 
+    // simulate an injection of test configuration options from Cypress
+    // note that Cypress puts any properties it doesn't know about into
+    // unverifiedTestConfig; the rest go elsewhere.  this is effective
+    // for testing add-on properties ONLY.
+    test._testConfig = {
+      unverifiedTestConfig: options._testConfig
+    };
+
     return test;
   }
 
@@ -553,6 +561,103 @@ describe('mocha-junit-reporter', function() {
     });
   });
 
+  describe('when "includeTags" option is specified', function() {
+    it('includes tags and teams from the suite and test names', function(done) {
+      var reporter = createReporter({includeTags: true});
+      var rootSuite = reporter.runner.suite;
+      var suite1 = Suite.create(rootSuite, 'root suite has @root tag');
+
+      suite1.addTest(createTest('test case has #tag and #testcase and @team'));
+
+      runRunner(reporter.runner, function() {
+        if (reporter.runner.dispose) {
+          reporter.runner.dispose();
+        }
+
+        expect(reporter._testsuites[1].testsuite[1].testcase[0]._attr.tags).to.have.lengthOf(4);
+        expect(reporter._testsuites[1].testsuite[1].testcase[0]._attr.tags).to.have.members(['@root', '#tag', '#testcase', '@team']);
+
+        done();
+      });
+    });
+
+    it('includes tags and teams from the test config', function(done) {
+      var reporter = createReporter({includeTags: true});
+      var rootSuite = reporter.runner.suite;
+      var suite1 = Suite.create(rootSuite, 'root suite has no tag');
+
+      suite1.addTest(createTest('test case includes tags from config', { _testConfig: { tags: ['#tag', '@team']} }));
+
+      runRunner(reporter.runner, function() {
+        if (reporter.runner.dispose) {
+          reporter.runner.dispose();
+        }
+
+        expect(reporter._testsuites[1].testsuite[1].testcase[0]._attr.tags).to.have.lengthOf(2);
+        expect(reporter._testsuites[1].testsuite[1].testcase[0]._attr.tags).to.have.members(['#tag', '@team']);
+
+        done();
+      });
+    });
+
+    it('includes tags and teams from a comma separated string given in the test config', function(done) {
+      var reporter = createReporter({includeTags: true});
+      var rootSuite = reporter.runner.suite;
+      var suite1 = Suite.create(rootSuite, 'root suite has no tag');
+
+      suite1.addTest(createTest('test case includes tags from config', { _testConfig: { tags: '#tag, @team, #array'} }));
+
+      runRunner(reporter.runner, function() {
+        if (reporter.runner.dispose) {
+          reporter.runner.dispose();
+        }
+
+        expect(reporter._testsuites[1].testsuite[1].testcase[0]._attr.tags).to.have.lengthOf(3);
+        expect(reporter._testsuites[1].testsuite[1].testcase[0]._attr.tags).to.have.members(['#tag', '@team', '#array']);
+
+        done();
+      });
+    });
+
+    it('includes tags and teams from both the name and test config', function(done) {
+      var reporter = createReporter({includeTags: true});
+      var rootSuite = reporter.runner.suite;
+      var suite1 = Suite.create(rootSuite, 'root suite has @root tag');
+
+      suite1.addTest(createTest('test #case includes tags in name and tags from config', { _testConfig: { tags: ['#tag', '@team']} }));
+
+      runRunner(reporter.runner, function() {
+        if (reporter.runner.dispose) {
+          reporter.runner.dispose();
+        }
+
+        expect(reporter._testsuites[1].testsuite[1].testcase[0]._attr.tags).to.have.lengthOf(4);
+        expect(reporter._testsuites[1].testsuite[1].testcase[0]._attr.tags).to.have.members(['@root', '#case', '#tag', '@team']);
+
+        done();
+      });
+    });
+
+    it('deduplicates tags and teams', function(done) {
+      var reporter = createReporter({includeTags: true});
+      var rootSuite = reporter.runner.suite;
+      var suite1 = Suite.create(rootSuite, 'root suite has @root tag');
+
+      suite1.addTest(createTest('test #case has includes #tags from config', { _testConfig: { tags: ['@root', '#case', '@root']} }));
+
+      runRunner(reporter.runner, function() {
+        if (reporter.runner.dispose) {
+          reporter.runner.dispose();
+        }
+
+        expect(reporter._testsuites[1].testsuite[1].testcase[0]._attr.tags).to.have.lengthOf(3);
+        expect(reporter._testsuites[1].testsuite[1].testcase[0]._attr.tags).to.have.members(['@root', '#case', '#tags']);
+
+        done();
+      });
+    });
+  });
+
   describe('Output', function() {
     it('skips suites with empty title', function(done) {
       var reporter = createReporter();
@@ -731,6 +836,42 @@ describe('mocha-junit-reporter', function() {
 
       runRunner(reporter.runner, function() {
         var schema = fs.readFileSync(path.join(__dirname, 'resources', 'circle-ci-junit.xsd'));
+        var result = xmllint.validateXML({ xml: reporter._xml, schema: schema });
+        expect(result.errors).to.equal(null, JSON.stringify(result.errors));
+
+        done();
+      });
+    });
+
+    it('generates XML containing "tags" attribute when includeTags is true', function(done) {
+      this.timeout(10000); // xmllint is very slow
+
+      var reporter = createReporter({includeTags: true});
+      var rootSuite = reporter.runner.suite;
+
+      var suite1 = Suite.create(rootSuite, 'Inner Suite');
+      suite1.addTest(createTest('test', { _testConfig: { tags: ['#tag', '@team']} }));
+
+      runRunner(reporter.runner, function() {
+        var schema = fs.readFileSync(path.join(__dirname, 'resources', 'tagged-junit.xsd'));
+        var result = xmllint.validateXML({ xml: reporter._xml, schema: schema });
+        expect(result.errors).to.equal(null, JSON.stringify(result.errors));
+
+        done();
+      });
+    });
+
+    it('generates XML containing "tags" attribute when includeTags is true, even if test has no tags', function(done) {
+      this.timeout(10000); // xmllint is very slow
+
+      var reporter = createReporter({includeTags: true});
+      var rootSuite = reporter.runner.suite;
+
+      var suite1 = Suite.create(rootSuite, 'Inner Suite');
+      suite1.addTest(createTest('test'));
+
+      runRunner(reporter.runner, function() {
+        var schema = fs.readFileSync(path.join(__dirname, 'resources', 'tagged-junit.xsd'));
         var result = xmllint.validateXML({ xml: reporter._xml, schema: schema });
         expect(result.errors).to.equal(null, JSON.stringify(result.errors));
 
