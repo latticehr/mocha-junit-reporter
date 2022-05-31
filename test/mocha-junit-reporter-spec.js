@@ -64,12 +64,7 @@ describe('mocha-junit-reporter', function() {
     }
 
     // simulate an injection of test configuration options from Cypress
-    // note that Cypress puts any properties it doesn't know about into
-    // unverifiedTestConfig; the rest go elsewhere.  this is effective
-    // for testing add-on properties ONLY.
-    test._testConfig = {
-      unverifiedTestConfig: options._testConfig
-    };
+    test._testConfig = options._testConfig;
 
     return test;
   }
@@ -614,6 +609,29 @@ describe('mocha-junit-reporter', function() {
 
         expect(reporter._testsuites[1].testsuite[1].testcase[0]._attr.tags).to.have.lengthOf(2);
         expect(reporter._testsuites[1].testsuite[1].testcase[0]._attr.tags).to.have.members(['#tag', '@team']);
+
+        done();
+      });
+    });
+
+    it('does not blow up if _testConfig is missing or malformed', function(done) {
+      var reporter = createReporter({includeTags: true});
+      var rootSuite = reporter.runner.suite;
+      var suite1 = Suite.create(rootSuite, 'root suite has no tag');
+
+      suite1.addTest(createTest('does this blow up', { _testConfig: null }));
+      suite1.addTest(createTest('what about this', { _testConfig: undefined }));
+      suite1.addTest(createTest('how about no tags', { _testConfig: {} }));
+      suite1.addTest(createTest('what if testconfig is a string', { _testConfig: 'a' }));
+      suite1.addTest(createTest('what if tags is an integer', { _testConfig: { tags: 1 } }));
+      suite1.addTest(createTest('what if there is no config', { }));
+
+      runRunner(reporter.runner, function() {
+        if (reporter.runner.dispose) {
+          reporter.runner.dispose();
+        }
+
+        expect(reporter._testsuites[1].testsuite[1].testcase[0]._attr.tags).to.have.lengthOf(0);
 
         done();
       });
