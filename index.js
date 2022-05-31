@@ -329,12 +329,12 @@ function getTagsFromTestcaseData(name, test) {
   // inspect the supplied test object to see if it has any user-created properties
   // this object will be present if the tests were run by Cypress, and if any additional
   // key/value pairs were added to the test.
-  var testConfig = test && test._testConfig;
+  var testConfig = test && test._testConfig || {};
 
   var tagPropertyValue = undefined;
 
   // Cypress => ~9.0.0 puts user-defined tags in _testConfig.unverifiedTestConfig.tags
-  if (testConfig && testConfig.unverifiedTestConfig && testConfig.unverifiedTestConfig.tags) {
+  if (testConfig.unverifiedTestConfig && testConfig.unverifiedTestConfig.tags) {
     tagPropertyValue = testConfig.unverifiedTestConfig.tags;
   }
   // Cypress =< ~8.0.0 puts user-defined tags in _testConfig.tags
