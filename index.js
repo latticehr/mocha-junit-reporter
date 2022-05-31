@@ -314,6 +314,65 @@ MochaJUnitReporter.prototype.getTestsuiteData = function(suite) {
 };
 
 /**
+ * Given a fully qualified test name and test case context, derive a list of user-defined
+ * tags, if present.
+ *
+ * @param {String} name - the fully qualified name of the test
+ * @param {object} test - test case
+ */
+function getTagsFromTestcaseData(name, test) {
+  // extract tags and teams from the test name
+  // this regex matches any whole word beginning with # or @
+  // includes words surrounded by parenthesis, square brackets, and punctuation
+  var tagsFromName = name.match(/([#|@]\w+)/g) || [];
+
+  // inspect the supplied test object to see if it has any user-created properties
+  // this object will be present if the tests were run by Cypress, and if any additional
+  // key/value pairs were added to the test.
+  var testConfig = test && test._testConfig;
+
+  var tagPropertyValue = undefined;
+
+  // Cypress => ~9.0.0 puts user-defined tags in _testConfig.unverifiedTestConfig.tags
+  if (testConfig && testConfig.unverifiedTestConfig && testConfig.unverifiedTestConfig.tags) {
+    tagPropertyValue = testConfig.unverifiedTestConfig.tags;
+  }
+  // Cypress =< ~8.0.0 puts user-defined tags in _testConfig.tags
+  else if (testConfig.tags) {
+    tagPropertyValue = testConfig.tags;
+  }
+
+  var tagsFromProperties = [];
+
+  // the 'tags' property can contain tags in a comma separated string, or in an array
+  // figure out which format is used, and ensure we end up with an array
+  if (tagPropertyValue !== undefined) {
+    if (Array.isArray(tagPropertyValue)) {
+      tagsFromProperties = tagPropertyValue;
+    } else if (typeof tagPropertyValue === 'string' || tagPropertyValue instanceof String) {
+      tagsFromProperties = tagPropertyValue.split(',');
+    } else {
+      console.warn('the "tags" custom property value for test "' + name + '" was neither an array nor a string (actual: ' + tagPropertyValue + '), and was ignored. this probably means that the test metadata isn\'t working the way it was intended.');
+    }
+  }
+
+  // combine the tags from both sources, trim spaces from the beginning and end,
+  // and deduplicate them
+  var allTags = tagsFromName.concat(tagsFromProperties);
+  var trimmedAndDedupedTags = [];
+
+  for (var i = 0; i < allTags.length; i++) {
+    var cleaned = allTags[i].trim();
+
+    if (trimmedAndDedupedTags.indexOf(cleaned) === -1) {
+      trimmedAndDedupedTags.push(cleaned);
+    }
+  }
+
+  return trimmedAndDedupedTags;
+}
+
+/**
  * Produces an xml config for a given test case.
  * @param {object} test - test case
  * @param {object} err - if test failed, the failure object
@@ -333,44 +392,7 @@ MochaJUnitReporter.prototype.getTestcaseData = function(test, err) {
   };
 
   if (includeTags) {
-    // extract tags and teams from the test name
-    // this regex matches any whole word beginning with # or @
-    // includes words surrounded by parenthesis, square brackets, and punctuation
-    var tagsFromName = name.match(/([#|@]\w+)/g) || [];
-
-     // inspect the supplied test object to see if it has any user-created properties
-    // this object will be present if the tests were run by Cypress, and if any additional
-    // key/value pairs were added to the test.
-    var customProperties = test && test._testConfig && test._testConfig.unverifiedTestConfig || {};
-    var tagPropertyValue = customProperties['tags'];
-
-    var tagsFromProperties = [];
-
-    // the 'tags' property can contain tags in a comma separated string, or in an array
-    // figure out which format is used, and ensure we end up with an array
-    if (tagPropertyValue !== undefined) {
-      if (Array.isArray(tagPropertyValue)) {
-        tagsFromProperties = tagPropertyValue;
-      } else if (typeof tagPropertyValue === 'string' || tagPropertyValue instanceof String) {
-        tagsFromProperties = tagPropertyValue.split(',');
-      } else {
-        console.warn('the "tags" custom property value for test "' + name + '" was neither an array nor a string (actual: ' + tagPropertyValue + '), and was ignored. this probably means that the test metadata isn\'t working the way it was intended.');
-      }
-    }
-
-    // combine the tags from both sources, trim spaces from the beginning and end,
-    // and deduplicate them
-    var allTags = tagsFromName.concat(tagsFromProperties);
-    var trimmedAndDedupedTags = [];
-
-    for (var i = 0; i < allTags.length; i++) {
-      var cleaned = allTags[i].trim();
-
-      if (trimmedAndDedupedTags.indexOf(cleaned) === -1) {
-        trimmedAndDedupedTags.push(cleaned);
-      }
-    }
-
+    var trimmedAndDedupedTags = getTagsFromTestcaseData(name, test);
     properties = Object.assign({}, properties, { tags: trimmedAndDedupedTags });
   }
 
