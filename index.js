@@ -346,7 +346,7 @@ function getTagsFromTestcaseData(name, test) {
 
   // the 'tags' property can contain tags in a comma separated string, or in an array
   // figure out which format is used, and ensure we end up with an array
-  if (tagPropertyValue !== undefined) {
+  if (tagPropertyValue) {
     if (Array.isArray(tagPropertyValue)) {
       tagsFromProperties = tagPropertyValue;
     } else if (typeof tagPropertyValue === 'string' || tagPropertyValue instanceof String) {

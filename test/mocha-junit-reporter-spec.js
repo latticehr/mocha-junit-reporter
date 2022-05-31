@@ -581,7 +581,26 @@ describe('mocha-junit-reporter', function() {
       });
     });
 
-    it('includes tags and teams from the test config', function(done) {
+    it('includes tags and teams from the test config when using Cypress >= ~9.0.0 style _testConfig', function(done) {
+      var reporter = createReporter({includeTags: true});
+      var rootSuite = reporter.runner.suite;
+      var suite1 = Suite.create(rootSuite, 'root suite has no tag');
+
+      suite1.addTest(createTest('test case includes tags from config', { _testConfig: { unverifiedTestConfig: { tags: ['#tag', '@team']} } }));
+
+      runRunner(reporter.runner, function() {
+        if (reporter.runner.dispose) {
+          reporter.runner.dispose();
+        }
+
+        expect(reporter._testsuites[1].testsuite[1].testcase[0]._attr.tags).to.have.lengthOf(2);
+        expect(reporter._testsuites[1].testsuite[1].testcase[0]._attr.tags).to.have.members(['#tag', '@team']);
+
+        done();
+      });
+    });
+
+    it('includes tags and teams from the test config when using Cypress <= ~8.0.0 style _testConfig', function(done) {
       var reporter = createReporter({includeTags: true});
       var rootSuite = reporter.runner.suite;
       var suite1 = Suite.create(rootSuite, 'root suite has no tag');
