@@ -350,7 +350,7 @@ function getTagsFromTestcaseData(name, test) {
   if (tagPropertyValue) {
     if (Array.isArray(tagPropertyValue)) {
       tagsFromProperties = tagPropertyValue;
-    } else if (typeof tagPropertyValue === 'string' || tagPropertyValue instanceof String) {
+    } else if (isString(tagPropertyValue)) {
       tagsFromProperties = tagPropertyValue.split(',');
     } else {
       console.warn('the "tags" custom property value for test "' + name + '" was neither an array nor a string (actual: ' + tagPropertyValue + '), and was ignored. this probably means that the test metadata isn\'t working the way it was intended.');
@@ -584,3 +584,42 @@ MochaJUnitReporter.prototype.writeXmlToDisk = function(xml, filePath){
     debug('results written successfully');
   }
 };
+
+
+/**
+ * [Gets the `toStringTag` of `value`.
+ *
+ * Copied from lodash; see LICENSE-THIRD-PARTY.txt for license.
+ *
+ * @private
+ * @param {*} value The value to query.
+ * @returns {string} Returns the `toStringTag`.
+ */
+ function getTag(value) {
+  if (value == null) {
+    return value === undefined ? '[object Undefined]' : '[object Null]';
+  }
+  return Object.prototype.toString.call(value);
+}
+
+/**
+ * Checks if `value` is classified as a `String` primitive or object.
+ *
+ * Copied from lodash; see LICENSE-THIRD-PARTY.txt for license.
+ *
+ * @since 0.1.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a string, else `false`.
+ * @example
+ *
+ * isString('abc')
+ * // => true
+ *
+ * isString(1)
+ * // => false
+ */
+ function isString(value) {
+  var type = typeof value;
+  return type === 'string' || (type === 'object' && value != null && !Array.isArray(value) && getTag(value) == '[object String]');
+}
