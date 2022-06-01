@@ -322,9 +322,10 @@ MochaJUnitReporter.prototype.getTestsuiteData = function(suite) {
  */
 function getTagsFromTestcaseData(name, test) {
   // extract tags and teams from the test name
-  // this regex matches any whole word beginning with # or @
+  // this regex matches any whole word beginning with # or @ and containing letters, numbers, - and _
   // includes words surrounded by parenthesis, square brackets, and punctuation
-  var tagsFromName = name.match(/([#|@]\w+)/g) || [];
+  // ex: @foo #bar #qux-quux #under_score (@in_parens) [#in-brackets]
+  var tagsFromName = name.match(/([#|@][\w\-_]+)/g) || [];
 
   // inspect the supplied test object to see if it has any user-created properties
   // this object will be present if the tests were run by Cypress, and if any additional
